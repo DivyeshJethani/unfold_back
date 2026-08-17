@@ -1,0 +1,486 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// CORE REFERENCE ENTITIES (minimal stubs — fleshed out in the data-model phase)
+// ============================================================================
+
+model Student {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  standardId      String
+  streamId        String?
+  boardId         String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  attentionProfile      AttentionProfile?
+  creditWallet           CreditWallet?
+  topicMastery           TopicMastery[]
+  videoInteractions      VideoInteractionEvent[]
+  quizAttempts           QuizAttempt[]
+  revisionTests          RevisionTest[]
+  peerTeachingAsTutor    PeerTeachingSession[]  @relation("TutorSessions")
+  peerTeachingAsTutee    PeerTeachingSession[]  @relation("TuteeSessions")
+  studyGroupMemberships  StudyGroupMember[]
+  creditTransactions     CreditTransaction[]
+  examRecords            ExamRecord[]
+  coCurricularRecords    CoCurricularRecord[]
+
+  // Learning DNA additions
+  confidenceRecords      ConfidenceRecord[]
+  formatEffectiveness    FormatEffectiveness[]
+  struggleEvents         StruggleEvent[]
+  spacedRetentionChecks  SpacedRetentionCheck[]
+  learningDnaProfile     LearningDnaProfile?
+  stretchGoals           StretchGoal[]
+
+  @@index([standardId, boardId])
+}
+
+model Subject {
+  id       String   @id @default(uuid())
+  name     String
+  code     String   @unique
+  topics   Topic[]
+}
+
+model Topic {
+  id          String   @id @default(uuid())
+  subjectId   String
+  subject     Subject  @relation(fields: [subjectId], references: [id])
+  name        String
+  order       Int
+  prerequisiteTopicId String?
+  difficultyBaseline  Float   @default(0.5)
+
+  lectures       Lecture[]
+  topicMastery   TopicMastery[]
+  quizQuestions  QuizQuestion[]
+  confidenceRecords ConfidenceRecord[]
+  formatEffectiveness FormatEffectiveness[]
+  struggleEvents StruggleEvent[]
+  spacedRetentionChecks SpacedRetentionCheck[]
+  teachingContents TeachingContent[]
+
+  @@index([subjectId])
+}
+
+model Lecture {
+  id         String   @id @default(uuid())
+  topicId    String
+  topic      Topic    @relation(fields: [topicId], references: [id])
+  title      String
+  videoUrl   String
+  durationSec Int
+
+  videoInteractions VideoInteractionEvent[]
+  revisionTests     RevisionTest[]
+
+  @@index([topicId])
+}
+
+// ============================================================================
+// SIGNAL CAPTURE: video interaction events
+// ============================================================================
+
+enum VideoEventType {
+  PLAY
+  PAUSE
+  REWIND
+  FAST_FORWARD
+  SKIP_SECTION
+  SPEED_CHANGE
+  COMPLETE
+  DROP_OFF
+}
+
+model VideoInteractionEvent {
+  id          String         @id @default(uuid())
+  studentId   String
+  student     Student        @relation(fields: [studentId], references: [id])
+  lectureId   String
+  lecture     Lecture        @relation(fields: [lectureId], references: [id])
+  eventType   VideoEventType
+  atSecond    Int
+  toSecond    Int?
+  playbackSpeed Float?
+  createdAt   DateTime       @default(now())
+
+  @@index([studentId, lectureId])
+  @@index([lectureId, atSecond])
+}
+
+// ============================================================================
+// ASSESSMENT: quizzes, revision tests, exam records
+// ============================================================================
+
+enum MistakeType {
+  NONE
+  CONCEPT      // doesn't understand the idea
+  CALCULATION  // understands, arithmetic/algebra slip
+  MEMORY       // forgot a formula/fact
+  LOGIC        // wrong approach/strategy chosen
+  CARELESS     // knew it, slipped (misread question, sign error, etc.)
+}
+
+model QuizQuestion {
+  id         String   @id @default(uuid())
+  topicId    String
+  topic      Topic    @relation(fields: [topicId], references: [id])
+  prompt     String
+  options    Json
+  correctOptionId String
+  difficulty Float    @default(0.5)
+
+  quizAnswers QuizAnswer[]
+}
+
+model QuizAttempt {
+  id         String   @id @default(uuid())
+  studentId  String
+  student    Student  @relation(fields: [studentId], references: [id])
+  startedAt  DateTime @default(now())
+  finishedAt DateTime?
+  score      Float?
+  answers    QuizAnswer[]
+}
+
+model QuizAnswer {
+  id             String       @id @default(uuid())
+  attemptId      String
+  attempt        QuizAttempt  @relation(fields: [attemptId], references: [id])
+  questionId     String
+  question       QuizQuestion @relation(fields: [questionId], references: [id])
+  selectedOptionId String?
+  isCorrect      Boolean
+  timeTakenMs    Int
+  mistakeType    MistakeType  @default(NONE)
+  // free-text "show your working" — optional, lets us classify mistake type
+  workingText    String?
+}
+
+model RevisionTest {
+  id          String   @id @default(uuid())
+  studentId   String
+  student     Student  @relation(fields: [studentId], references: [id])
+  lectureId   String
+  lecture     Lecture  @relation(fields: [lectureId], references: [id])
+  triggeredBy RevisionTestTrigger
+  questions   Json
+  responses   Json?
+  score       Float?
+  nemotronFeedback Json?
+  createdAt   DateTime @default(now())
+  completedAt DateTime?
+
+  @@index([studentId, lectureId])
+}
+
+enum RevisionTestTrigger {
+  POST_LECTURE
+  WEAKNESS_DETECTED
+  SCHEDULED_REVIEW
+}
+
+model ExamRecord {
+  id         String   @id @default(uuid())
+  studentId  String
+  student    Student  @relation(fields: [studentId], references: [id])
+  subjectId  String
+  examName   String
+  marksObtained Float
+  maxMarks   Float
+  examDate   DateTime
+}
+
+model CoCurricularRecord {
+  id          String   @id @default(uuid())
+  studentId   String
+  student     Student  @relation(fields: [studentId], references: [id])
+  activityName String
+  category    String
+  level       String
+  achievedAt  DateTime
+  notes       String?
+}
+
+// ============================================================================
+// DERIVED STATE: topic mastery, attention profile
+// ============================================================================
+
+enum MasteryLevel {
+  WEAK
+  DEVELOPING
+  PROFICIENT
+  STRONG
+}
+
+model TopicMastery {
+  id            String       @id @default(uuid())
+  studentId     String
+  student       Student      @relation(fields: [studentId], references: [id])
+  topicId       String
+  topic         Topic        @relation(fields: [topicId], references: [id])
+  masteryScore  Float        @default(0.5)
+  masteryLevel  MasteryLevel @default(DEVELOPING)
+  confidence    Float        @default(0.3)
+  lastEvaluatedAt DateTime   @default(now())
+  needsReview   Boolean      @default(false)
+  consecutiveFailures Int    @default(0)
+
+  // dominant mistake pattern on this topic, refreshed as new evidence arrives
+  dominantMistakeType MistakeType? 
+
+  @@unique([studentId, topicId])
+  @@index([studentId, needsReview])
+}
+
+model AttentionProfile {
+  id                  String   @id @default(uuid())
+  studentId           String   @unique
+  student             Student  @relation(fields: [studentId], references: [id])
+  estimatedAttentionSpanSec Int  @default(900)
+  memoryRetentionScore Float   @default(0.5)
+  bestFocusWindowStart Int?
+  bestFocusWindowEnd   Int?
+  updatedAt           DateTime @updatedAt
+}
+
+// ============================================================================
+// STUDY GROUPS & PEER TEACHING
+// ============================================================================
+
+model StudyGroup {
+  id         String   @id @default(uuid())
+  name       String
+  subjectId  String
+  standardId String
+  boardId    String
+  createdAt  DateTime @default(now())
+
+  members StudyGroupMember[]
+}
+
+model StudyGroupMember {
+  id           String     @id @default(uuid())
+  studyGroupId String
+  studyGroup   StudyGroup @relation(fields: [studyGroupId], references: [id])
+  studentId    String
+  student      Student    @relation(fields: [studentId], references: [id])
+  joinedAt     DateTime   @default(now())
+
+  @@unique([studyGroupId, studentId])
+}
+
+enum PeerTeachingOutcome {
+  PENDING
+  IMPROVED
+  NOT_IMPROVED
+  ESCALATED_TO_PEER
+}
+
+model PeerTeachingSession {
+  id           String   @id @default(uuid())
+  topicId      String
+  tutorId      String?
+  tutor        Student? @relation("TutorSessions", fields: [tutorId], references: [id])
+  isAiTutor    Boolean  @default(false)
+  tuteeId      String
+  tutee        Student  @relation("TuteeSessions", fields: [tuteeId], references: [id])
+  transcript   Json?
+  nemotronEvaluation Json?
+  outcome      PeerTeachingOutcome @default(PENDING)
+  createdAt    DateTime @default(now())
+  resolvedAt   DateTime?
+
+  @@index([tuteeId, topicId])
+}
+
+// ============================================================================
+// CREDITS & REWARDS
+// ============================================================================
+
+enum CreditReason {
+  QUIZ_COMPLETED
+  REVISION_TEST_PASSED
+  TAUGHT_AI_SUCCESSFULLY
+  TAUGHT_PEER_SUCCESSFULLY
+  PEER_IMPROVED_AFTER_TEACHING
+  STREAK_BONUS
+  WELL_CALIBRATED_CONFIDENCE
+  REDEEMED
+}
+
+model CreditWallet {
+  id        String   @id @default(uuid())
+  studentId String   @unique
+  student   Student  @relation(fields: [studentId], references: [id])
+  balance   Int      @default(0)
+  lifetimeEarned Int @default(0)
+  updatedAt DateTime @updatedAt
+}
+
+model CreditTransaction {
+  id        String       @id @default(uuid())
+  studentId String
+  student   Student      @relation(fields: [studentId], references: [id])
+  amount    Int
+  reason    CreditReason
+  refId     String?
+  createdAt DateTime     @default(now())
+}
+
+model RewardCatalogItem {
+  id          String   @id @default(uuid())
+  name        String
+  description String
+  creditCost  Int
+  stock       Int
+  active      Boolean  @default(true)
+}
+
+// ============================================================================
+// LEARNING DNA — new models
+// ============================================================================
+
+/// Confidence calibration: "how sure are you?" captured before grading, so
+/// we can compare stated confidence against actual correctness over time.
+model ConfidenceRecord {
+  id             String   @id @default(uuid())
+  studentId      String
+  student        Student  @relation(fields: [studentId], references: [id])
+  topicId        String
+  topic          Topic    @relation(fields: [topicId], references: [id])
+  refType        String   // 'QUIZ_QUESTION' | 'REVISION_TEST' | 'TEACHBACK'
+  refId          String
+  predictedConfidence Float // 0..1, self-reported before seeing the result
+  wasCorrect     Boolean
+  createdAt      DateTime @default(now())
+}
+
+enum TeachingFormat {
+  TEXT
+  VIDEO
+  DIAGRAM
+  EXAMPLE
+  SIMULATION
+}
+
+/// One row of curated content per topic per format, so the format-testing
+/// engine has something concrete to serve and measure against.
+model TeachingContent {
+  id        String         @id @default(uuid())
+  topicId   String
+  topic     Topic          @relation(fields: [topicId], references: [id])
+  format    TeachingFormat
+  title     String
+  body      String         // markdown / URL / simulation config, format-dependent
+
+  @@index([topicId, format])
+}
+
+/// Rolling performance-per-format-per-topic-per-student — the input to the
+/// bandit-style format recommender.
+model FormatEffectiveness {
+  id            String         @id @default(uuid())
+  studentId     String
+  student       Student        @relation(fields: [studentId], references: [id])
+  topicId       String
+  topic         Topic          @relation(fields: [topicId], references: [id])
+  format        TeachingFormat
+  attempts      Int            @default(0)
+  avgScore      Float          @default(0.5) // EWMA of post-format check scores
+  lastUsedAt    DateTime       @default(now())
+
+  @@unique([studentId, topicId, format])
+}
+
+enum StruggleAction {
+  RETRIED
+  USED_HINT
+  SWITCHED_METHOD
+  VIEWED_SOLUTION
+  GAVE_UP
+  PERSISTED_TO_CORRECT // kept trying and got there without a hint/solution
+}
+
+/// One row per observed reaction to difficulty — feeds a persistence /
+/// resilience score, independent of whether the final answer was right.
+model StruggleEvent {
+  id         String         @id @default(uuid())
+  studentId  String
+  student    Student        @relation(fields: [studentId], references: [id])
+  topicId    String
+  topic      Topic          @relation(fields: [topicId], references: [id])
+  questionId String?
+  action     StruggleAction
+  secondsStuckBefore Int    // time spent before this action was taken
+  createdAt  DateTime       @default(now())
+}
+
+/// Scheduled spaced-repetition checkpoints (2 / 7 / 30 days after a topic
+/// was first learned), each resolved by a short check test.
+model SpacedRetentionCheck {
+  id           String    @id @default(uuid())
+  studentId    String
+  student      Student   @relation(fields: [studentId], references: [id])
+  topicId      String
+  topic        Topic     @relation(fields: [topicId], references: [id])
+  intervalDays Int       // 2, 7, or 30
+  scheduledFor DateTime
+  completedAt  DateTime?
+  score        Float?    // 0..1, null until completed
+
+  @@index([studentId, scheduledFor])
+}
+
+/// The single aggregated "Learning DNA" profile — recomputed periodically
+/// from every other signal source, not a live join, so reads are cheap.
+model LearningDnaProfile {
+  id        String   @id @default(uuid())
+  studentId String   @unique
+  student   Student  @relation(fields: [studentId], references: [id])
+
+  // headline traits, each 0..1 unless noted
+  learningSpeed        Float @default(0.5)
+  memoryRetention       Float @default(0.5)
+  attentionSpanSec      Int   @default(900)
+  problemSolvingScore   Float @default(0.5) // rewards process, not just final answers
+  confidenceCalibration Float @default(0.5) // 1.0 = perfectly calibrated (Brier-based)
+  resilienceScore       Float @default(0.5) // from struggle-event patterns
+  preferredFormat       TeachingFormat?
+  dominantMistakePattern MistakeType?
+
+  summary   String   // plain-language paragraph, human-readable
+  rawSnapshot Json    // full structured snapshot for the frontend to render freely
+  updatedAt DateTime @updatedAt
+}
+
+enum StretchGoalStatus {
+  SUGGESTED
+  ACCEPTED
+  DECLINED
+  ACHIEVED
+}
+
+/// Compares a student's stated goal against their measured trajectory; if
+/// they're tracking meaningfully above their own goal, we suggest a stretch
+/// target instead of just marking the original goal "done".
+model StretchGoal {
+  id                    String            @id @default(uuid())
+  studentId             String
+  student               Student           @relation(fields: [studentId], references: [id])
+  subjectId             String
+  originalGoalPercent   Float
+  projectedCapabilityPercent Float
+  status                StretchGoalStatus @default(SUGGESTED)
+  createdAt             DateTime          @default(now())
+  resolvedAt            DateTime?
+}
