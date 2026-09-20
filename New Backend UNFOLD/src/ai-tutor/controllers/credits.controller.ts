@@ -1,10 +1,13 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { CreditService } from '../services/credit.service';
 import { RedeemRewardDto } from '../dto/teachback.dto';
 import { CurrentStudentId } from '../decorators/current-student.decorator';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 
 @ApiTags('credits')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 @Controller('credits')
 export class CreditsController {
   constructor(private readonly creditService: CreditService) {}

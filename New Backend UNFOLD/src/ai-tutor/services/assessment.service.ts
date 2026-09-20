@@ -38,6 +38,9 @@ export class AssessmentService {
 
     const questionIds = params.answers.map((a) => a.questionId);
     const questions = await this.prisma.quizQuestion.findMany({ where: { id: { in: questionIds } } });
+    if (questions.length !== questionIds.length) {
+      throw new NotFoundException('One or more quiz questions not found');
+    }
     const correctById = new Map(questions.map((q) => [q.id, q.correctOptionId]));
 
     const attempt = await this.prisma.quizAttempt.create({ data: { studentId: params.studentId } });

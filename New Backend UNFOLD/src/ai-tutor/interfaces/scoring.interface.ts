@@ -67,6 +67,26 @@ export interface MistakeClassification {
   rationale: string;
 }
 
+export interface TopicTrajectory {
+  topicId: string;
+  topicName?: string;
+  previousScore: number;
+  currentScore: number;
+  delta: number;
+  trend: 'IMPROVING' | 'DECLINING' | 'STABLE';
+  snapshotCount: number;
+  sustainedImprovement: boolean;
+}
+
+export interface LongitudinalAnalysis {
+  improvingTopics: TopicTrajectory[];
+  decliningTopics: TopicTrajectory[];
+  stableTopics: Array<{ topicId: string; topicName?: string; currentScore: number }>;
+  masteryTrajectory: 'IMPROVING' | 'DECLINING' | 'STABLE' | 'INSUFFICIENT_DATA';
+  sustainedImprovement: boolean;
+  totalSnapshots: number;
+}
+
 export interface LearningDnaSnapshot {
   studentId: string;
   learningSpeed: number;
@@ -78,4 +98,5 @@ export interface LearningDnaSnapshot {
   preferredFormat: 'TEXT' | 'VIDEO' | 'DIAGRAM' | 'EXAMPLE' | 'SIMULATION' | null;
   dominantMistakePattern: 'CONCEPT' | 'CALCULATION' | 'MEMORY' | 'LOGIC' | 'CARELESS' | null;
   summary: string;
+  longitudinal?: LongitudinalAnalysis;
 }

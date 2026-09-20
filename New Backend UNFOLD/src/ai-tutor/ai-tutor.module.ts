@@ -21,6 +21,7 @@ import { SpacedRetentionService } from './services/spaced-retention.service';
 import { LearningDnaService } from './services/learning-dna.service';
 import { StretchGoalService } from './services/stretch-goal.service';
 import { AssessmentService } from './services/assessment.service';
+import { BehavioralFeatureService } from './services/behavioral-feature.service';
 
 import { AiEvaluationProcessor } from './processors/ai-evaluation.processor';
 
@@ -79,6 +80,7 @@ import { StretchGoalController } from './controllers/stretch-goal.controller';
     LearningDnaService,
     StretchGoalService,
     AssessmentService,
+    BehavioralFeatureService,
     AiEvaluationProcessor,
   ],
   exports: [
@@ -87,6 +89,8 @@ import { StretchGoalController } from './controllers/stretch-goal.controller';
     StudyGroupService,
     TimetableService,
     LearningDnaService,
+    BehavioralFeatureService,
   ],
 })
 export class AiTutorModule {}
+

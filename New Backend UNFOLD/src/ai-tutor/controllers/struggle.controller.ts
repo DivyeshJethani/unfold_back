@@ -1,10 +1,13 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { StruggleBehaviorService } from '../services/struggle-behavior.service';
 import { LogStruggleEventDto } from '../dto/struggle.dto';
 import { CurrentStudentId } from '../decorators/current-student.decorator';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 
 @ApiTags('struggle-behavior')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 @Controller('struggle')
 export class StruggleController {
   constructor(private readonly struggleService: StruggleBehaviorService) {}

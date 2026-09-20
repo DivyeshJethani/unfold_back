@@ -11,9 +11,22 @@ datasource db {
 // CORE REFERENCE ENTITIES (minimal stubs — fleshed out in the data-model phase)
 // ============================================================================
 
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String?
+  role      String   @default("STUDENT")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  student   Student?
+}
+
 model Student {
   id              String   @id @default(uuid())
   userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   standardId      String
   streamId        String?
   boardId         String
@@ -23,6 +36,7 @@ model Student {
   attentionProfile      AttentionProfile?
   creditWallet           CreditWallet?
   topicMastery           TopicMastery[]
+  topicMasteryHistory    TopicMasteryHistory[]
   videoInteractions      VideoInteractionEvent[]
   quizAttempts           QuizAttempt[]
   revisionTests          RevisionTest[]
@@ -62,6 +76,7 @@ model Topic {
 
   lectures       Lecture[]
   topicMastery   TopicMastery[]
+  topicMasteryHistory TopicMasteryHistory[]
   quizQuestions  QuizQuestion[]
   confidenceRecords ConfidenceRecord[]
   formatEffectiveness FormatEffectiveness[]
@@ -93,12 +108,17 @@ model Lecture {
 enum VideoEventType {
   PLAY
   PAUSE
+  SEEK
   REWIND
+  FORWARD
   FAST_FORWARD
   SKIP_SECTION
   SPEED_CHANGE
+  PROGRESS
+  WATCH_PROGRESS
   COMPLETE
   DROP_OFF
+  REPLAY
 }
 
 model VideoInteractionEvent {
@@ -115,6 +135,7 @@ model VideoInteractionEvent {
 
   @@index([studentId, lectureId])
   @@index([lectureId, atSecond])
+  @@index([studentId, createdAt])
 }
 
 // ============================================================================
@@ -150,6 +171,8 @@ model QuizAttempt {
   finishedAt DateTime?
   score      Float?
   answers    QuizAnswer[]
+
+  @@index([studentId, startedAt])
 }
 
 model QuizAnswer {
@@ -164,6 +187,9 @@ model QuizAnswer {
   mistakeType    MistakeType  @default(NONE)
   // free-text "show your working" — optional, lets us classify mistake type
   workingText    String?
+
+  @@index([attemptId])
+  @@index([questionId])
 }
 
 model RevisionTest {
@@ -240,6 +266,23 @@ model TopicMastery {
 
   @@unique([studentId, topicId])
   @@index([studentId, needsReview])
+}
+
+model TopicMasteryHistory {
+  id                  String        @id @default(uuid())
+  studentId           String
+  student             Student       @relation(fields: [studentId], references: [id])
+  topicId             String
+  topic               Topic         @relation(fields: [topicId], references: [id])
+  masteryScore        Float
+  masteryLevel        MasteryLevel
+  confidence          Float
+  needsReview         Boolean
+  dominantMistakeType MistakeType?
+  recordedAt          DateTime      @default(now())
+
+  @@index([studentId, topicId, recordedAt])
+  @@index([studentId, recordedAt])
 }
 
 model AttentionProfile {
@@ -363,6 +406,9 @@ model ConfidenceRecord {
   predictedConfidence Float // 0..1, self-reported before seeing the result
   wasCorrect     Boolean
   createdAt      DateTime @default(now())
+
+  @@index([studentId, topicId])
+  @@index([studentId, createdAt])
 }
 
 enum TeachingFormat {
