@@ -22,6 +22,7 @@ import { LearningDnaService } from './services/learning-dna.service';
 import { StretchGoalService } from './services/stretch-goal.service';
 import { AssessmentService } from './services/assessment.service';
 import { BehavioralFeatureService } from './services/behavioral-feature.service';
+import { RecommendationService } from './services/recommendation.service';
 
 import { AiEvaluationProcessor } from './processors/ai-evaluation.processor';
 
@@ -36,6 +37,7 @@ import { StruggleController } from './controllers/struggle.controller';
 import { SpacedRetentionController } from './controllers/spaced-retention.controller';
 import { LearningDnaController } from './controllers/learning-dna.controller';
 import { StretchGoalController } from './controllers/stretch-goal.controller';
+import { RecommendationController } from './controllers/recommendation.controller';
 
 @Module({
   imports: [
@@ -61,6 +63,7 @@ import { StretchGoalController } from './controllers/stretch-goal.controller';
     SpacedRetentionController,
     LearningDnaController,
     StretchGoalController,
+    RecommendationController,
   ],
   providers: [
     NemotronService,
@@ -81,6 +84,7 @@ import { StretchGoalController } from './controllers/stretch-goal.controller';
     StretchGoalService,
     AssessmentService,
     BehavioralFeatureService,
+    RecommendationService,
     AiEvaluationProcessor,
   ],
   exports: [
@@ -90,6 +94,7 @@ import { StretchGoalController } from './controllers/stretch-goal.controller';
     TimetableService,
     LearningDnaService,
     BehavioralFeatureService,
+    RecommendationService,
   ],
 })
 export class AiTutorModule {}
